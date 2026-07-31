@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group Number Chat</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-chat: #0f172a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --border: #334155;
+      --msg-self: #4338ca;
+      --msg-other: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg-primary); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
+
+    .chat-container {
+      width: 100%; max-width: 800px; height: 90vh; background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column;
+      overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .chat-header {
+      padding: 1rem 1.25rem; background: rgba(15, 23, 42, 0.6);
+      border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.85rem;
+      padding: 0.25rem 0.75rem; border-radius: 9999px; background: rgba(239, 68, 68, 0.1); color: #ef4444;
+    }
+    .status-badge.connected { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    /* Controls Bar */
+    .controls-bar {
+      padding: 0.75rem 1.25rem; background: rgba(30, 41, 59, 0.8);
+      border-bottom: 1px solid var(--border); display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+      justify-content: space-between;
+    }
+
+    .input-group { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+    .input-group input {
+      background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-main);
+      padding: 0.375rem 0.75rem; border-radius: 6px; outline: none; font-weight: 600;
+    }
+
+    .btn {
+      background: var(--accent); color: white; border: none; padding: 0.375rem 0.75rem;
+      border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-secondary { background: #475569; }
+    .btn-secondary:hover { background: #334155; }
+
+    /* Chat Messages */
+    .chat-messages { flex: 1; padding: 1.25rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; background: var(--bg-chat); }
+    .message { display: flex; flex-direction: column; max-width: 75%; }
+    .message.self { align-self: flex-end; }
+    .message.other { align-self: flex-start; }
+    .message-meta { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; display: flex; gap: 0.5rem; }
+    .message.self .message-meta { justify-content: flex-end; }
+    .message-bubble { padding: 0.75rem 1rem; border-radius: 12px; word-break: break-word; line-height: 1.4; font-size: 0.95rem; }
+    .message.self .message-bubble { background: var(--msg-self); color: #ffffff; border-bottom-right-radius: 2px; }
+    .message.other .message-bubble { background: var(--msg-other); color: var(--text-main); border-bottom-left-radius: 2px; }
+    
+    .system-msg { align-self: center; font-size: 0.8rem; color: var(--text-muted); background: rgba(255, 255, 255, 0.05); padding: 0.25rem 0.75rem; border-radius: 9999px; text-align: center; }
+
+    .chat-footer { padding: 1.25rem; background: var(--bg-surface); border-top: 1px solid var(--border); display: flex; gap: 0.75rem; }
+    .chat-footer input { flex: 1; background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-main); padding: 0.75rem 1rem; border-radius: 8px; outline: none; }
+    .chat-footer button { background: var(--accent); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="chat-header">
+      <h2 id="groupHeading">💬 Group #: ------</h2>
+      <div id="statusBadge" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </div>
+
+    <!-- User & Group Controls -->
+    <div class="controls-bar">
+      <div class="input-group">
+        <label>Name:</label>
+        <input type="text" id="usernameInput" maxlength="15" placeholder="Nickname">
+      </div>
+
+      <div class="input-group">
+        <input type="number" id="groupNumInput" placeholder="Group #" style="width: 110px;">
+        <button class="btn" id="joinGroupBtn">Join</button>
+        <button class="btn btn-secondary" id="createGroupBtn">Create New</button>
+      </div>
+    </div>
+
+    <div id="chatMessages" class="chat-messages">
+      <div class="system-msg">Create a new group or type a 6-digit number to join an existing discussion!</div>
+    </div>
+
+    <form id="chatForm" class="chat-footer">
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" required>
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const userId = 'user_' + Math.random().toString(36).substring(2, 9);
+    let currentTopic = '';
+    let currentGroupNum = '';
+
+    const usernameInput = document.getElementById('usernameInput');
+    const groupNumInput = document.getElementById('groupNumInput');
+    const joinGroupBtn = document.getElementById('joinGroupBtn');
+    const createGroupBtn = document.getElementById('createGroupBtn');
+    const groupHeading = document.getElementById('groupHeading');
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+
+    usernameInput.value = localStorage.getItem('chat_nickname') || 'User_' + Math.floor(1000 + Math.random() * 9000);
+    usernameInput.addEventListener('change', () => localStorage.setItem('chat_nickname', usernameInput.value.trim()));
+
+    // Connect via MQTT over WebSockets
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: 'web_chat_' + userId,
+      keepalive: 60,
+      clean: true
+    });
+
+    client.on('connect', () => {
+      statusBadge.classList.add('connected');
+      statusText.textContent = 'Connected';
+
+      // Check URL hashtag for group number, or default to 100000
+      const urlGroup = window.location.hash.replace('#', '');
+      if (urlGroup && /^\d+$/.test(urlGroup)) {
+        joinGroup(urlGroup);
+      } else {
+        joinGroup('100000'); // Default public group
+      }
+    });
+
+    client.on('offline', () => {
+      statusBadge.classList.remove('connected');
+      statusText.textContent = 'Disconnected';
+    });
+
+    // Helper: Generate random 6-digit group number
+    function generateGroupNumber() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    // Join Group Logic
+    function joinGroup(groupNum) {
+      if (!groupNum) return;
+
+      const newTopic = `chat_app_group_num_${groupNum}`;
+
+      // Unsubscribe from previous group
+      if (currentTopic) {
+        client.unsubscribe(currentTopic);
+      }
+
+      currentTopic = newTopic;
+      currentGroupNum = groupNum;
+      
+      // Update UI & URL Hash
+      groupHeading.textContent = `💬 Group #: ${groupNum}`;
+      groupNumInput.value = groupNum;
+      window.location.hash = groupNum;
+
+      chatMessages.innerHTML = ''; // Clear chat view for new group
+
+      client.subscribe(currentTopic, (err) => {
+        if (!err) {
+          appendSystemMessage(`Joined Group #${groupNum}. Share this number with anyone to chat!`);
+        }
+      });
+    }
+
+    // Event Listeners
+    joinGroupBtn.addEventListener('click', () => {
+      const num = groupNumInput.value.trim();
+      if (num) joinGroup(num);
+    });
+
+    createGroupBtn.addEventListener('click', () => {
+      const newNum = generateGroupNumber();
+      joinGroup(newNum);
+    });
+
+    // Receive Message
+    client.on('message', (topic, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        appendMessage(data);
+      } catch (e) {
+        console.error('Invalid message payload', e);
+      }
+    });
+
+    // Send Message
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      const payload = {
+        id: userId,
+        sender: usernameInput.value.trim() || 'Anonymous',
+        text: text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      client.publish(currentTopic, JSON.stringify(payload));
+      messageInput.value = '';
+    });
+
+    function appendMessage(data) {
+      const isSelf = data.id === userId;
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `message ${isSelf ? 'self' : 'other'}`;
+      msgDiv.innerHTML = `
+        <div class="message-meta">
+          <span>${escapeHtml(data.sender)}</span>
+          <span>${data.time}</span>
+        </div>
+        <div class="message-bubble">${escapeHtml(data.text)}</div>
+      `;
+      chatMessages.appendChild(msgDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+      const sysDiv = document.createElement('div');
+      sysDiv.className = 'system-msg';
+      sysDiv.textContent = text;
+      chatMessages.appendChild(sysDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[m]));
+    }
+  </script>
+</body>
+</html>
