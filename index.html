@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Numbered Group Chat</title>
   
-  <!-- PINNED TO VERSION 4.3.7 FOR BROWSER WEBSOCKET COMPATIBILITY -->
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
@@ -25,13 +24,28 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg-main); color: var(--text-bright); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; overflow: hidden; }
+    body { background: var(--bg-main); color: var(--text-bright); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; overflow: hidden; position: relative; }
 
     .app {
       width: 100%; max-width: 800px; height: 90vh;
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); position: relative;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); position: relative; z-index: 10;
+    }
+
+    /* Shocking Birthday Screen Flash */
+    .app.bday-flash::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle, rgba(244,63,94,0.3) 0%, rgba(168,85,247,0.2) 50%, rgba(0,0,0,0) 80%);
+      pointer-events: none; z-index: 50;
+      animation: flashFade 1.2s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+    }
+
+    @keyframes flashFade {
+      0% { opacity: 1; transform: scale(0.98); }
+      50% { opacity: 0.8; transform: scale(1); }
+      100% { opacity: 0; }
     }
 
     .header {
@@ -99,9 +113,10 @@
     .chat-body {
       flex: 1; padding: 1.25rem; overflow-y: auto; display: flex;
       flex-direction: column; gap: 0.85rem; background: var(--bg-main);
+      position: relative;
     }
 
-    .msg { display: flex; flex-direction: column; max-width: 70%; }
+    .msg { display: flex; flex-direction: column; max-width: 70%; position: relative; }
     .msg.me { align-self: flex-end; }
     .msg.them { align-self: flex-start; }
 
@@ -113,10 +128,90 @@
 
     .bubble {
       padding: 0.65rem 0.95rem; border-radius: 12px; font-size: 0.9rem;
-      line-height: 1.45; word-break: break-word;
+      line-height: 1.45; word-break: break-word; transition: transform 0.2s;
     }
     .msg.me .bubble { background: var(--bubble-self); color: #fff; border-bottom-right-radius: 2px; }
     .msg.them .bubble { background: var(--bubble-other); color: var(--text-bright); border-bottom-left-radius: 2px; }
+
+    /* Birthday Message Styling */
+    .msg.bday-msg .bubble {
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      animation: pulseBday 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseBday {
+      0%, 100% { box-shadow: 0 0 12px rgba(236, 72, 153, 0.4); }
+      50% { box-shadow: 0 0 22px rgba(236, 72, 153, 0.7); }
+    }
+
+    /* Floating Emoji Particles */
+    .floating-emoji {
+      position: absolute;
+      font-size: 1.8rem;
+      pointer-events: none;
+      z-index: 60;
+      animation: floatUp 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(0.5) rotate(0deg); }
+      50% { opacity: 1; transform: translateY(-80px) scale(1.2) rotate(15deg); }
+      100% { opacity: 0; transform: translateY(-180px) scale(0.8) rotate(-20deg); }
+    }
+
+    /* Floating Real Balloons System */
+    .balloon {
+      position: fixed;
+      bottom: -100px;
+      width: 50px;
+      height: 65px;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: inset -5px -5px 10px rgba(0,0,0,0.15), inset 5px 5px 12px rgba(255,255,255,0.4);
+      animation: balloonRise 5s linear forwards, balloonSway 2s ease-in-out infinite alternate;
+    }
+
+    /* Balloon Knot & String */
+    .balloon::before {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 7px solid inherit;
+      border-bottom-color: inherit;
+    }
+
+    .balloon::after {
+      content: '';
+      position: absolute;
+      bottom: -32px;
+      left: 50%;
+      width: 2px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.5);
+      transform: translateX(-50%);
+    }
+
+    @keyframes balloonRise {
+      0% { transform: translateY(0); opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-110vh); opacity: 0; }
+    }
+
+    @keyframes balloonSway {
+      0% { margin-left: -15px; }
+      100% { margin-left: 15px; }
+    }
 
     .sys-msg {
       align-self: center; font-size: 0.75rem; color: var(--text-muted);
@@ -134,7 +229,7 @@
 </head>
 <body>
 
-  <div class="app">
+  <div class="app" id="app">
     <div id="joinModal" class="modal-overlay">
       <div class="modal-card">
         <h2>You are not in a group</h2>
@@ -188,6 +283,7 @@
     const userId = 'usr_' + Math.random().toString(36).substring(2, 8);
     let currentTopic = '';
 
+    const app = document.getElementById('app');
     const nameInput = document.getElementById('nameInput');
     const groupInput = document.getElementById('groupInput');
     const modalGroupInput = document.getElementById('modalGroupInput');
@@ -207,7 +303,7 @@
     nameInput.value = localStorage.getItem('chat_name') || 'User_' + Math.floor(100 + Math.random() * 900);
     nameInput.addEventListener('change', () => localStorage.setItem('chat_name', nameInput.value.trim()));
 
-    // HiveMQ Public Broker via Secure WebSockets (wss://broker.hivemq.com:8884/mqtt)
+    // HiveMQ Public Broker via Secure WebSockets
     const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
       clientId: 'gtalk_' + userId,
       keepalive: 60,
@@ -228,10 +324,6 @@
     client.on('offline', () => {
       statusEl.classList.remove('online');
       statusTxt.textContent = 'Reconnecting...';
-    });
-
-    client.on('error', (err) => {
-      console.error('MQTT Connection Error:', err);
     });
 
     function createGroupNumber() {
@@ -285,33 +377,138 @@
       joinGroup(createGroupNumber());
     });
 
-    function triggerBirthdayConfetti() {
-      const duration = 3 * 1000;
-      const animationEnd = Date.now() + duration;
-      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    // Web Audio API Sound Chime
+    function playCelebrationSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // C5 major arpeggio
+        
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
+          
+          gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.4);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.08);
+          osc.stop(ctx.currentTime + idx * 0.08 + 0.45);
+        });
+      } catch (e) {
+        console.log('Audio playback prevented');
+      }
+    }
 
-      function randomInRange(min, max) {
-        return Math.random() * (max - min) + min;
+    // Spawn Mass Floating Balloons
+    function spawnBalloons(count = 25) {
+      const colors = ['#f43f5e', '#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#eab308', '#f97316'];
+      
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          const balloon = document.createElement('div');
+          balloon.className = 'balloon';
+          
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          balloon.style.backgroundColor = color;
+          balloon.style.left = `${Math.random() * 95}%`;
+          
+          // Vary size and float duration
+          const scale = 0.7 + Math.random() * 0.6;
+          const duration = 4 + Math.random() * 3;
+          
+          balloon.style.transform = `scale(${scale})`;
+          balloon.style.animationDuration = `${duration}s, ${1.5 + Math.random()}s`;
+
+          document.body.appendChild(balloon);
+
+          // Clean up element after animation
+          setTimeout(() => balloon.remove(), duration * 1000);
+        }, i * 120); // Stagger balloon release
+      }
+    }
+
+    // Shockingly Better Multi-Stage Fireworks, Confetti & Balloons
+    function triggerExtremeBirthdaySpectacle(targetElement) {
+      // 1. Play Sound & Flash Glow
+      playCelebrationSound();
+      app.classList.remove('bday-flash');
+      void app.offsetWidth;
+      app.classList.add('bday-flash');
+
+      // 2. Launch Mass Floating Balloons
+      spawnBalloons(30);
+
+      // 3. Spawn Floating Emojis from Message Bubble
+      const emojis = ['🎂', '🥳', '🎉', '🎈', '🎁', '✨', '👑'];
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        for (let i = 0; i < 8; i++) {
+          const el = document.createElement('div');
+          el.className = 'floating-emoji';
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.left = `${rect.left + (Math.random() * rect.width)}px`;
+          el.style.top = `${rect.top}px`;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 2500);
+        }
       }
 
-      const interval = setInterval(function() {
-        const timeLeft = animationEnd - Date.now();
-        if (timeLeft <= 0) {
-          return clearInterval(interval);
+      // 4. Multi-Stage Confetti Cannons
+      const end = Date.now() + 2500;
+      const colors = ['#ec4899', '#8b5cf6', '#3b82f6', '#f59e0b', '#10b981'];
+
+      (function frame() {
+        confetti({
+          particleCount: 4,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors
+        });
+        confetti({
+          particleCount: 4,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
         }
-        const particleCount = 50 * (timeLeft / duration);
-        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
-        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
-      }, 250);
+      }());
+
+      // Center Star Burst
+      setTimeout(() => {
+        confetti({
+          particleCount: 100,
+          spread: 100,
+          origin: { y: 0.5 },
+          shapes: ['star'],
+          colors: ['#facc15', '#ec4899', '#38bdf8']
+        });
+      }, 300);
     }
 
     client.on('message', (topic, payload) => {
       try {
         const data = JSON.parse(payload.toString());
-        renderMessage(data);
+        const lowerText = data.text.toLowerCase();
         
-        if (data.text.toLowerCase().includes('happy birthday')) {
-          triggerBirthdayConfetti();
+        // Detect Trigger Words or Emojis
+        const isBirthday = lowerText.includes('happy birthday') || 
+                           /\bhb\b/.test(lowerText) ||
+                           /[🎂🥳🎉🎈🎁]/.test(data.text);
+
+        const msgElem = renderMessage(data, isBirthday);
+
+        if (isBirthday) {
+          triggerExtremeBirthdaySpectacle(msgElem);
         }
       } catch (e) {
         console.error('Payload parse error', e);
@@ -323,7 +520,7 @@
       let text = msgInput.value.trim();
       if (!text || !currentTopic) return;
 
-      text = text.replace(/\bhb\b/gi, 'Happy Birthday 🥳🎉');
+      text = text.replace(/\bhb\b/gi, 'Happy Birthday 🥳🎉🎂');
 
       const payload = {
         id: userId,
@@ -336,14 +533,14 @@
       msgInput.value = '';
     });
 
-    function renderMessage(data) {
+    function renderMessage(data, isBirthday) {
       const isMe = data.id === userId;
       const wrap = document.createElement('div');
-      wrap.className = `msg ${isMe ? 'me' : 'them'}`;
+      wrap.className = `msg ${isMe ? 'me' : 'them'} ${isBirthday ? 'bday-msg' : ''}`;
 
       wrap.innerHTML = `
         <div class="msg-info">
-          <span>${escapeHtml(data.sender)}</span>
+          <span>${escapeHtml(data.sender)} ${isBirthday ? '👑' : ''}</span>
           <span>${data.time}</span>
         </div>
         <div class="bubble">${escapeHtml(data.text)}</div>
@@ -351,6 +548,7 @@
 
       chatBody.appendChild(wrap);
       chatBody.scrollTop = chatBody.scrollHeight;
+      return wrap;
     }
 
     function renderSysMsg(text) {
