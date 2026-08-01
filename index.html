@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Numbered Group Chat</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
     :root {
       --bg-main: #0f172a;
@@ -21,7 +22,7 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg-main); color: var(--text-bright); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
+    body { background: var(--bg-main); color: var(--text-bright); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; overflow: hidden; }
 
     .app {
       width: 100%; max-width: 800px; height: 90vh;
@@ -285,11 +286,37 @@
       joinGroup(createGroupNumber());
     });
 
+    // Confetti Burst Helper
+    function triggerBirthdayConfetti() {
+      const duration = 3 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+        const particleCount = 50 * (timeLeft / duration);
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+      }, 250);
+    }
+
     // Receive Message
     client.on('message', (topic, payload) => {
       try {
         const data = JSON.parse(payload.toString());
         renderMessage(data);
+        
+        // Trigger confetti if message contains "Happy Birthday"
+        if (data.text.toLowerCase().includes('happy birthday')) {
+          triggerBirthdayConfetti();
+        }
       } catch (e) {
         console.error('Payload parse error', e);
       }
@@ -298,8 +325,11 @@
     // Send Message
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const text = msgInput.value.trim();
+      let text = msgInput.value.trim();
       if (!text || !currentTopic) return;
+
+      // Replace lowercase/standalone 'hb' with 'Happy Birthday 🥳🎉'
+      text = text.replace(/\bhb\b/gi, 'Happy Birthday 🥳🎉');
 
       const payload = {
         id: userId,
