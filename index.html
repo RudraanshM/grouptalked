@@ -142,8 +142,8 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn" id="modalJoinBtn">Join Group</button>
-          <button class="btn btn-secondary" id="modalCreateBtn">Create New Group</button>
+          <button type="button" class="btn" id="modalJoinBtn">Join Group</button>
+          <button type="button" class="btn btn-secondary" id="modalCreateBtn">Create New Group</button>
         </div>
       </div>
     </div>
@@ -168,8 +168,8 @@
       <div class="field">
         <label>Group #:</label>
         <input type="number" id="groupInput" placeholder="e.g. 100" style="width: 90px;" min="1">
-        <button class="btn" id="joinBtn">Join</button>
-        <button class="btn btn-secondary" id="createBtn">Create New</button>
+        <button type="button" class="btn" id="joinBtn">Join</button>
+        <button type="button" class="btn btn-secondary" id="createBtn">Create New</button>
       </div>
     </div>
 
@@ -204,7 +204,8 @@
     nameInput.value = localStorage.getItem('chat_name') || 'User_' + Math.floor(100 + Math.random() * 900);
     nameInput.addEventListener('change', () => localStorage.setItem('chat_name', nameInput.value.trim()));
 
-    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+    // Connected via EMQX broker over Secure WebSockets (wss://) for GitHub Pages compatibility
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
       clientId: 'chat_' + userId,
       keepalive: 60,
       clean: true,
@@ -257,19 +258,23 @@
       });
     }
 
-    joinBtn.addEventListener('click', () => {
+    joinBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       if (groupInput.value.trim()) joinGroup(groupInput.value);
     });
 
-    createBtn.addEventListener('click', () => {
+    createBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       joinGroup(createGroupNumber());
     });
 
-    modalJoinBtn.addEventListener('click', () => {
+    modalJoinBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       if (modalGroupInput.value.trim()) joinGroup(modalGroupInput.value);
     });
 
-    modalCreateBtn.addEventListener('click', () => {
+    modalCreateBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       joinGroup(createGroupNumber());
     });
 
